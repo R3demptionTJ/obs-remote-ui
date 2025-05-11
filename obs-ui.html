@@ -1,0 +1,122 @@
+<html><head>
+  
+ </head>
+ <body>    
+  <meta charset="UTF-8"> 
+  <title>OBS Remote</title> 
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #111;
+      color: white;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      margin-bottom: 20px;
+      font-size: 24px;
+      color: #00ccff;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      width: 100%;
+      max-width: 400px;
+    }
+    .button {
+      background: #222;
+      color: white;
+      font-size: 18px;
+      padding: 20px;
+      border-radius: 12px;
+      border: 2px solid #444;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+    .button:hover {
+      background: #00ccff;
+      color: black;
+    }
+    .status {
+      margin-top: 20px;
+      font-size: 14px;
+      color: #ccc;
+    }
+  </style> 
+  <h1>OBS Remote</h1> 
+  <div class="grid"> 
+   <div class="button" onclick="changeScene('IRL')">
+     IRL Scene 
+   </div> 
+   <div class="button" onclick="changeScene('Be Right Back')">
+     BRB 
+   </div> 
+   <div class="button" onclick="toggleMute()">
+     Toggle Mic 
+   </div> 
+   <div class="button" onclick="toggleStream()">
+     Start/Stop Stream 
+   </div> 
+   <div class="button" onclick="toggleRecord()">
+     Start/Stop Record 
+   </div> 
+  </div> 
+  <div class="status" id="status">
+    Connecting... 
+  </div> 
+  <script>
+    const statusEl = document.getElementById("status");
+    const socket = new WebSocket("ws://100.124.7.108:4455"); // CHANGE THIS LATER
+
+    socket.onopen = () => {
+      statusEl.textContent = "Connected to OBS";
+    };
+
+    socket.onclose = () => {
+      statusEl.textContent = "Disconnected";
+    };
+
+    socket.onerror = () => {
+      statusEl.textContent = "Error connecting";
+    };
+
+    socket.onmessage = (event) => {
+      console.log("OBS:", event.data);
+    };
+
+    function sendRequest(type, data = {}) {
+      const msg = {
+        op: 6,
+        d: {
+          requestType: type,
+          requestId: Date.now().toString(),
+          requestData: data
+        }
+      };
+      socket.send(JSON.stringify(msg));
+    }
+
+    function changeScene(sceneName) {
+      sendRequest("SetCurrentProgramScene", { sceneName });
+    }
+
+    function toggleStream() {
+      sendRequest("ToggleStream");
+    }
+
+    function toggleRecord() {
+      sendRequest("ToggleRecord");
+    }
+
+    function toggleMute() {
+      sendRequest("ToggleInputMute", { inputName: "Mic/Aux" });
+    }
+  </script>  
+  
+ 
+</body></html>
