@@ -59,9 +59,7 @@
 </head>
 <body>
   <h1>OBS Remote</h1>
-  <div class="grid" id="scene-buttons">
-    <!-- Scene buttons will be added here -->
-  </div>
+  <div class="grid" id="scene-buttons"></div>
 
   <div class="grid" style="margin-top: 20px;">
     <div class="button" onclick="toggleMute()">Toggle Mic</div>
@@ -72,45 +70,92 @@
   <div class="status" id="status">Connecting...</div>
 
   <script>
+    const OBS_WS_URL = "ws://100.124.7.108:4455";
+    const OBS_PASSWORD = "So0K9dMXbDUucsIM";
+
+    let socket;
+    let requestCounter = 1;
+    let pendingRequests = {};
+
     const statusEl = document.getElementById("status");
     const sceneButtonsEl = document.getElementById("scene-buttons");
 
-    const socket = new WebSocket("ws://100.124.7.108:4455");
-
-    socket.onopen = () => {
-      statusEl.textContent = "Connected to OBS";
-      requestScenes();
-    };
-
-    socket.onclose = () => {
-      statusEl.textContent = "Disconnected";
-    };
-
-    socket.onerror = () => {
-      statusEl.textContent = "Error connecting";
-    };
-
-    socket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      if (message.op === 7 && message.d.responseData?.scenes) {
-        renderSceneButtons(message.d.responseData.scenes);
-      }
-    };
-
-    function sendRequest(type, data = {}) {
+    function sendRequest(type, data = {}, cb) {
+      const id = (requestCounter++).toString();
       const msg = {
         op: 6,
         d: {
           requestType: type,
-          requestId: Date.now().toString(),
+          requestId: id,
           requestData: data
         }
       };
       socket.send(JSON.stringify(msg));
+      if (cb) pendingRequests[id] = cb;
     }
 
-    function requestScenes() {
-      sendRequest("GetSceneList");
+    function connect() {
+      socket = new WebSocket(OBS_WS_URL);
+
+      socket.onopen = () => {
+        statusEl.textContent = "Connected. Awaiting hello...";
+      };
+
+      socket.onclose = () => {
+        statusEl.textContent = "Disconnected";
+      };
+
+      socket.onerror = () => {
+        statusEl.textContent = "WebSocket Error";
+      };
+
+      socket.onmessage = async (event) => {
+        const msg = JSON.parse(event.data);
+
+        if (msg.op === 0) {
+          const { authentication, rpcVersion } = msg.d;
+          if (authentication) {
+            const secret = await computeSecret(
+              OBS_PASSWORD,
+              authentication.salt,
+              authentication.challenge
+            );
+            const identify = {
+              op: 1,
+              d: {
+                rpcVersion,
+                authentication: secret
+              }
+            };
+            socket.send(JSON.stringify(identify));
+          } else {
+            socket.send(JSON.stringify({ op: 1, d: { rpcVersion } }));
+          }
+        }
+
+        else if (msg.op === 2) {
+          statusEl.textContent = "Authenticated!";
+          requestScenes();
+        }
+
+        else if (msg.op === 7 && msg.d.responseData?.scenes) {
+          renderSceneButtons(msg.d.responseData.scenes);
+        }
+
+        else if (msg.op === 7 && msg.d.requestId && pendingRequests[msg.d.requestId]) {
+          pendingRequests[msg.d.requestId](msg.d);
+          delete pendingRequests[msg.d.requestId];
+        }
+      };
+    }
+
+    async function computeSecret(password, salt, challenge) {
+      const enc = new TextEncoder();
+      const salted = await crypto.subtle.digest("SHA-256", enc.encode(password + salt));
+      const saltedHex = [...new Uint8Array(salted)].map(b => b.toString(16).padStart(2, '0')).join('');
+      const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(saltedHex), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+      const sig = await crypto.subtle.sign("HMAC", key, enc.encode(challenge));
+      return btoa(String.fromCharCode(...new Uint8Array(sig)));
     }
 
     function renderSceneButtons(scenes) {
@@ -122,6 +167,10 @@
         btn.onclick = () => changeScene(scene.sceneName);
         sceneButtonsEl.appendChild(btn);
       });
+    }
+
+    function requestScenes() {
+      sendRequest("GetSceneList");
     }
 
     function changeScene(sceneName) {
@@ -137,8 +186,10 @@
     }
 
     function toggleMute() {
-      sendRequest("ToggleInputMute", { inputName: "Mic/Aux" }); // Change if your mic name is different
+      sendRequest("ToggleInputMute", { inputName: "Mic/Aux" });
     }
+
+    connect();
   </script>
 </body>
 </html>
