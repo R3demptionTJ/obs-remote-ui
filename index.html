@@ -1,10 +1,17 @@
-<html><head>
-  
- </head>
- <body>    
-  <meta charset="UTF-8"> 
-  <title>OBS Remote</title> 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OBS Remote</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    const password = "R3demption"; // Password protection
+    const userPassword = prompt("Enter password:");
+    if (userPassword !== password) {
+      document.body.innerHTML = "<h2 style='color:white;text-align:center;margin-top:50px;'>Access Denied</h2>";
+      throw new Error("Access Denied");
+    }
+  </script>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
@@ -47,31 +54,23 @@
       font-size: 14px;
       color: #ccc;
     }
-  </style> 
-  <h1>OBS Remote</h1> 
-  <div class="grid"> 
-   <div class="button" onclick="changeScene('IRL')">
-     IRL Scene 
-   </div> 
-   <div class="button" onclick="changeScene('Be Right Back')">
-     BRB 
-   </div> 
-   <div class="button" onclick="toggleMute()">
-     Toggle Mic 
-   </div> 
-   <div class="button" onclick="toggleStream()">
-     Start/Stop Stream 
-   </div> 
-   <div class="button" onclick="toggleRecord()">
-     Start/Stop Record 
-   </div> 
-  </div> 
-  <div class="status" id="status">
-    Connecting... 
-  </div> 
+  </style>
+</head>
+<body>
+  <h1>OBS Remote</h1>
+  <div class="grid">
+    <div class="button" onclick="changeScene('IRL')">IRL Scene</div>
+    <div class="button" onclick="changeScene('Be Right Back')">BRB</div>
+    <div class="button" onclick="toggleMute()">Toggle Mic</div>
+    <div class="button" onclick="toggleStream()">Start/Stop Stream</div>
+    <div class="button" onclick="toggleRecord()">Start/Stop Record</div>
+  </div>
+  <div class="status" id="status">Connecting...</div>
+
   <script>
     const statusEl = document.getElementById("status");
-    const socket = new WebSocket("ws://100.124.7.108:4455"); // CHANGE THIS LATER
+
+    const socket = new WebSocket("ws://100.124.7.108:4455"); // Your OBS WebSocket
 
     socket.onopen = () => {
       statusEl.textContent = "Connected to OBS";
@@ -114,9 +113,8 @@
     }
 
     function toggleMute() {
-      sendRequest("ToggleInputMute", { inputName: "Mic/Aux" });
+      sendRequest("ToggleInputMute", { inputName: "Mic/Aux" }); // Replace with your input name if different
     }
-  </script>  
-  
- 
-</body></html>
+  </script>
+</body>
+</html>
