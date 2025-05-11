@@ -5,7 +5,7 @@
   <title>OBS Remote</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script>
-    const password = "R3demption"; // Password protection
+    const password = "R3demption";
     const userPassword = prompt("Enter password:");
     if (userPassword !== password) {
       document.body.innerHTML = "<h2 style='color:white;text-align:center;margin-top:50px;'>Access Denied</h2>";
@@ -44,6 +44,7 @@
       border: 2px solid #444;
       text-align: center;
       transition: all 0.2s ease;
+      cursor: pointer;
     }
     .button:hover {
       background: #00ccff;
@@ -58,22 +59,27 @@
 </head>
 <body>
   <h1>OBS Remote</h1>
-  <div class="grid">
-    <div class="button" onclick="changeScene('IRL')">IRL Scene</div>
-    <div class="button" onclick="changeScene('Be Right Back')">BRB</div>
+  <div class="grid" id="scene-buttons">
+    <!-- Scene buttons will be added here -->
+  </div>
+
+  <div class="grid" style="margin-top: 20px;">
     <div class="button" onclick="toggleMute()">Toggle Mic</div>
     <div class="button" onclick="toggleStream()">Start/Stop Stream</div>
     <div class="button" onclick="toggleRecord()">Start/Stop Record</div>
   </div>
+
   <div class="status" id="status">Connecting...</div>
 
   <script>
     const statusEl = document.getElementById("status");
+    const sceneButtonsEl = document.getElementById("scene-buttons");
 
-    const socket = new WebSocket("ws://100.124.7.108:4455"); // Your OBS WebSocket
+    const socket = new WebSocket("ws://100.124.7.108:4455");
 
     socket.onopen = () => {
       statusEl.textContent = "Connected to OBS";
+      requestScenes();
     };
 
     socket.onclose = () => {
@@ -85,7 +91,10 @@
     };
 
     socket.onmessage = (event) => {
-      console.log("OBS:", event.data);
+      const message = JSON.parse(event.data);
+      if (message.op === 7 && message.d.responseData?.scenes) {
+        renderSceneButtons(message.d.responseData.scenes);
+      }
     };
 
     function sendRequest(type, data = {}) {
@@ -98,6 +107,21 @@
         }
       };
       socket.send(JSON.stringify(msg));
+    }
+
+    function requestScenes() {
+      sendRequest("GetSceneList");
+    }
+
+    function renderSceneButtons(scenes) {
+      sceneButtonsEl.innerHTML = "";
+      scenes.forEach(scene => {
+        const btn = document.createElement("div");
+        btn.className = "button";
+        btn.textContent = scene.sceneName;
+        btn.onclick = () => changeScene(scene.sceneName);
+        sceneButtonsEl.appendChild(btn);
+      });
     }
 
     function changeScene(sceneName) {
@@ -113,7 +137,7 @@
     }
 
     function toggleMute() {
-      sendRequest("ToggleInputMute", { inputName: "Mic/Aux" }); // Replace with your input name if different
+      sendRequest("ToggleInputMute", { inputName: "Mic/Aux" }); // Change if your mic name is different
     }
   </script>
 </body>
